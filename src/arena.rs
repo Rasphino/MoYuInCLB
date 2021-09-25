@@ -9,6 +9,7 @@ use rand::Rng;
 use serde_json::json;
 use std::str::from_utf8;
 use std::io::{BufReader, BufRead};
+use std::collections::HashMap;
 
 #[derive(Deserialize, Serialize, Debug, PartialEq)]
 pub struct TicTacToePostRequest {
@@ -153,17 +154,20 @@ pub(crate) async fn arena_handle(payload: String) -> Result<(), StatusCode> {
                         if game.as_ref().unwrap().is_my_turn() {
                             let new_pos = game.as_mut().unwrap().random_move();
 
-                            let response = json!({
+                            let response = serde_json::to_string(&json!({
                                 "action": "putSymbol",
                                 "position": new_pos
-                            }).to_string();
-                            debug!("{:?}", response);
+                            })).unwrap();
+                            debug!("{}", response);
 
                             // send response
+                            let mut response = HashMap::new();
+                            response.insert("action", "putSymbol");
+                            response.insert("position", &new_pos);
                             let client = reqwest::blocking::Client::new();
                             let res = client
                                 .post(format!("https://cis2021-arena.herokuapp.com/tic-tac-toe/play/{}", battle_id))
-                                .body(response)
+                                .json(&response)
                                 .send();
                             // debug!("{:?}", &res);
                         }
@@ -176,16 +180,13 @@ pub(crate) async fn arena_handle(payload: String) -> Result<(), StatusCode> {
 
                         let new_pos = game.as_mut().unwrap().random_move();
                         debug!("{:?}", &game);
-                        let response = json!({
-                            "action": "putSymbol",
-                            "position": new_pos
-                        }).to_string();
-                        debug!("{:?}", response);
-
+                        let mut response = HashMap::new();
+                        response.insert("action", "putSymbol");
+                        response.insert("position", &new_pos);
                         let client = reqwest::blocking::Client::new();
                         let res = client
                             .post(format!("https://cis2021-arena.herokuapp.com/tic-tac-toe/play/{}", battle_id))
-                            .body(response)
+                            .json(&response)
                             .send();
                         // debug!("{:?}", &res);
                     } else if let Ok(game_end_event) = serde_json::from_str::<GameEndEvent>(&buf[5..]) {

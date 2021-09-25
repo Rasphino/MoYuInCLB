@@ -32,7 +32,7 @@ async fn main() -> anyhow::Result<()> {
         .layer(
             ServiceBuilder::new()
                 .load_shed()
-                .concurrency_limit(1)
+                .concurrency_limit(1024)
                 .timeout(std::time::Duration::from_secs(10))
                 .layer(TraceLayer::new_for_http())
                 .into_inner(),
