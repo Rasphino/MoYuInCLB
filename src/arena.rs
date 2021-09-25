@@ -10,6 +10,7 @@ use serde_json::json;
 use std::str::from_utf8;
 use std::io::{BufReader, BufRead};
 use std::collections::HashMap;
+use reqwest::header::CONTENT_TYPE;
 
 #[derive(Deserialize, Serialize, Debug, PartialEq)]
 pub struct TicTacToePostRequest {
@@ -167,6 +168,7 @@ pub(crate) async fn arena_handle(payload: String) -> Result<(), StatusCode> {
                             let client = reqwest::blocking::Client::new();
                             let res = client
                                 .post(format!("https://cis2021-arena.herokuapp.com/tic-tac-toe/play/{}", battle_id))
+                                .header(CONTENT_TYPE, "application/json")
                                 .json(&response)
                                 .send();
                             // debug!("{:?}", &res);
@@ -186,6 +188,7 @@ pub(crate) async fn arena_handle(payload: String) -> Result<(), StatusCode> {
                         let client = reqwest::blocking::Client::new();
                         let res = client
                             .post(format!("https://cis2021-arena.herokuapp.com/tic-tac-toe/play/{}", battle_id))
+                            .header(CONTENT_TYPE, "application/json")
                             .json(&response)
                             .send();
                         // debug!("{:?}", &res);
