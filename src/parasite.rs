@@ -25,8 +25,8 @@ pub struct ParasitePostResponse {
 
 pub(crate) async fn parasite_handle(payload: String) -> Result<Json<Vec<ParasitePostResponse>>, StatusCode>  {
     debug!("called");
+    debug!("payload={}", payload);
     let payload: Vec<ParasitePostRequest> = serde_json::from_str(&payload).map_err(|_e| StatusCode::BAD_REQUEST)?;
-    debug!("payload={:?}", payload);
 
     let resps = payload.into_iter()
         .map(|mut req| {
