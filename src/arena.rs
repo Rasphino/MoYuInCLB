@@ -202,9 +202,11 @@ pub(crate) async fn arena_handle(payload: String) -> Result<(), StatusCode> {
                         break;
                     } else if let Ok(flip_table_event) = serde_json::from_str::<FlipTableEvent>(&buf[5..]) {
                         debug!("buf={}, event={:?}", buf, flip_table_event);
-                        // let mut response = HashMap::new();
-                        // response.insert("action", "(╯°□°)╯︵ ┻━┻");
-                        // post_action(&battle_id, &response);
+                        if flip_table_event.player != game.as_ref().unwrap().player {
+                            let mut response = HashMap::new();
+                            response.insert("action", "(╯°□°)╯︵ ┻━┻");
+                            post_action(&battle_id, &response);
+                        }
                         break;
                     } else {
                         debug!("known buf={}", buf);
