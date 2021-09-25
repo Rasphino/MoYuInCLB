@@ -103,8 +103,8 @@ impl TicTacToe {
             i = rng.gen_range(0..3);
             j = rng.gen_range(0..3);
         }
-        // self.board[i][j] = self.turn.clone();
-        // self.next_turn();
+        self.board[i][j] = self.turn.clone();
+        self.next_turn();
         Self::index_to_position(i, j)
     }
 
@@ -116,15 +116,15 @@ impl TicTacToe {
         }
     }
 
-    fn play_symbol(&mut self, pos: String, player: String) -> bool {
-        if player != self.turn { return false; }
+    fn play_symbol(&mut self, pos: String) -> bool {
+        // if player != self.turn { return false; }
         let x = Self::position_to_index(&pos);
         if x.is_none() { return false; }
         let (i, j) = x.unwrap();
         if self.board[i][j] != " " {
             return false;
         } else {
-            self.board[i][j] = player;
+            self.board[i][j] = self.turn.clone();
         }
         self.next_turn();
         true
@@ -175,9 +175,13 @@ pub(crate) async fn arena_handle(payload: String) -> Result<(), StatusCode> {
                     } else if let Ok(move_event) = serde_json::from_str::<MoveEvent>(&buf[5..]) {
                         debug!("buf={}, event={:?}", buf, move_event);
 
+                        if move_event.player == game.as_ref().unwrap().player {
+                            continue
+                        }
+
                         let pos = move_event.position.clone();
-                        let player = move_event.player.clone();
-                        if !game.as_mut().unwrap().play_symbol(pos, player) {
+                        // let player = move_event.player.clone();
+                        if !game.as_mut().unwrap().play_symbol(pos) {
                             debug!("Flip the table");
                             let mut response = HashMap::new();
                             response.insert("action", "(╯°□°)╯︵ ┻━┻");
@@ -198,9 +202,9 @@ pub(crate) async fn arena_handle(payload: String) -> Result<(), StatusCode> {
                         break;
                     } else if let Ok(flip_table_event) = serde_json::from_str::<FlipTableEvent>(&buf[5..]) {
                         debug!("buf={}, event={:?}", buf, flip_table_event);
-                        let mut response = HashMap::new();
-                        response.insert("action", "(╯°□°)╯︵ ┻━┻");
-                        post_action(&battle_id, &response);
+                        // let mut response = HashMap::new();
+                        // response.insert("action", "(╯°□°)╯︵ ┻━┻");
+                        // post_action(&battle_id, &response);
                         break;
                     } else {
                         debug!("known buf={}", buf);
