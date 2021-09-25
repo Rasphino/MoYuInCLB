@@ -118,8 +118,9 @@ impl TicTacToe {
         let (i, j) = Self::position_to_index(&pos);
         if self.board[i][j] != " " {
             // todo: flip the table
+        } else {
+            self.board[i][j] = self.turn.clone();
         }
-        self.board[i][j] = self.turn.clone();
         self.next_turn();
     }
 }
@@ -202,7 +203,7 @@ pub(crate) async fn arena_handle(payload: String) -> Result<(), StatusCode> {
         }
 
         Ok(())
-    });
+    }).join();
     Ok(())
 }
 
