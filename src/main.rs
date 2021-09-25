@@ -1,3 +1,5 @@
+mod arena;
+
 use std::net::SocketAddr;
 
 use axum::{
@@ -26,6 +28,7 @@ async fn main() -> anyhow::Result<()> {
     let app = Router::new()
         .route("/", get(root))
         .route("/square", post(square_handle))
+        .route("/tic-tac-toe", post(arena::arena_handle))
         .layer(
             ServiceBuilder::new()
                 .load_shed()
@@ -41,7 +44,7 @@ async fn main() -> anyhow::Result<()> {
     let addr = SocketAddr::from(([0, 0, 0, 0], port));
     debug!("Listening on {}", addr);
     axum::Server::bind(&addr)
-        .serve(app.into_make_service())
+        .serve(app.into_make_service_with_connect_info::<SocketAddr, _>())
         .await?;
 
     Ok(())
