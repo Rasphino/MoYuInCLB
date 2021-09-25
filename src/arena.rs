@@ -5,9 +5,10 @@ use axum::response::IntoResponse;
 use axum::http::{Request, header::HeaderMap, StatusCode};
 use axum::extract::ConnectInfo;
 use std::net::SocketAddr;
-use sse_client::EventSource;
 use rand::Rng;
 use serde_json::json;
+use std::str::from_utf8;
+use std::io::{BufReader, BufRead};
 
 #[derive(Deserialize, Serialize, Debug, PartialEq)]
 pub struct TicTacToePostRequest {
@@ -128,61 +129,76 @@ pub(crate) async fn arena_handle(payload: String) -> Result<(), StatusCode> {
     info!("called");
     let payload: TicTacToePostRequest = serde_json::from_str(&payload).map_err(|_e| StatusCode::BAD_REQUEST)?;
     let battle_id = payload.battle_id.clone();
-    debug!("{}", &battle_id);
 
     std::thread::spawn(move || -> Result<(), StatusCode> {
-        let event_source = EventSource::new(&format!("https://cis2021-arena.herokuapp.com/tic-tac-toe/start/{}", battle_id)).unwrap();
-        let rx = event_source.receiver();
-        let initial_event = rx.recv().map_err(|_e| StatusCode::BAD_REQUEST)?;
-        let initial_event: InitialEvent = serde_json::from_str(&initial_event.data).map_err(|_e| StatusCode::BAD_REQUEST)?;
-        let mut game = TicTacToe::new(&initial_event.you_are);
-        debug!("{:?}", &game);
-        if game.is_my_turn() {
-            let new_pos = game.random_move();
-            debug!("{:?}", &game);
-            let response = json!({
-                "action": "putSymbol",
-                "position": new_pos
-            }).to_string();
-            // send response
-            let client = reqwest::blocking::Client::new();
-            let res = client
-                .post(format!("https://cis2021-arena.herokuapp.com/tic-tac-toe/play/{}", battle_id))
-                .body(response)
-                .send();
-            debug!("{:?}", &res);
+        let end_point = format!("https://cis2021-arena.herokuapp.com/tic-tac-toe/start/{}", battle_id);
+        debug!("{}", end_point);
+
+        let mut game = None;
+        let event_source = reqwest::blocking::Client::new();
+        let mut res = event_source.get(&end_point).send().unwrap();
+        let mut reader = BufReader::new(&mut res);
+        loop {
+            let mut buf= String::new();
+            match reader.read_line((&mut buf)) {
+                Ok(x) if x <=5 => {
+                    std::thread::sleep(std::time::Duration::from_millis(10));
+                }
+                Ok(_) => {
+                    debug!("{}", buf);
+                    if let Ok(initial_event) = serde_json::from_str::<InitialEvent>(&buf[5..]) {
+                        game = Some(TicTacToe::new(&initial_event.you_are));
+                        if game.as_ref().unwrap().is_my_turn() {
+                            let new_pos = game.as_mut().unwrap().random_move();
+                            debug!("{:?}", &game);
+                            let response = json!({
+                                "action": "putSymbol",
+                                "position": new_pos
+                            }).to_string();
+                            // send response
+                            let client = reqwest::blocking::Client::new();
+                            let res = client
+                                .post(format!("https://cis2021-arena.herokuapp.com/tic-tac-toe/play/{}", battle_id))
+                                .body(response)
+                                .send();
+                            debug!("{:?}", &res);
+                        }
+                    }
+                    if let Ok(move_event) = serde_json::from_str::<MoveEvent>(&buf[5..]) {
+                        debug!("{:?}", &move_event);
+                        let pos = move_event.position.clone();
+                        game.as_mut().unwrap().play_symbol(pos);
+                        debug!("{:?}", &game);
+
+                        let new_pos = game.as_mut().unwrap().random_move();
+                        debug!("{:?}", &game);
+                        let response = json!({
+                            "action": "putSymbol",
+                            "position": new_pos
+                        }).to_string();
+
+                        let client = reqwest::blocking::Client::new();
+                        let res = client
+                            .post(format!("https://cis2021-arena.herokuapp.com/tic-tac-toe/play/{}", battle_id))
+                            .body(response)
+                            .send();
+                        debug!("{:?}", &res);
+                    }
+                    if let Ok(game_end_event) = serde_json::from_str::<GameEndEvent>(&buf[5..]) {
+                        debug!("{:?}", &game_end_event);
+                        break;
+                    }
+                    if let Ok(flip_table_event) = serde_json::from_str::<FlipTableEvent>(&buf[5..]) {
+                        debug!("{:?}", &flip_table_event);
+                        break;
+                    }
+
+
+                }
+                Err(_) => { break; }
+            }
         }
 
-        for event in rx.iter() {
-            if let Ok(move_event) = serde_json::from_str::<MoveEvent>(&event.data) {
-                debug!("{:?}", &move_event);
-                let pos = move_event.position.clone();
-                game.play_symbol(pos);
-                debug!("{:?}", &game);
-
-                let new_pos = game.random_move();
-                debug!("{:?}", &game);
-                let response = json!({
-                "action": "putSymbol",
-                "position": new_pos
-            }).to_string();
-
-                let client = reqwest::blocking::Client::new();
-                let res = client
-                    .post(format!("https://cis2021-arena.herokuapp.com/tic-tac-toe/play/{}", battle_id))
-                    .body(response)
-                    .send();
-                debug!("{:?}", &res);
-            }
-            if let Ok(game_end_event) = serde_json::from_str::<GameEndEvent>(&event.data) {
-                debug!("{:?}", &game_end_event);
-                break;
-            }
-            if let Ok(flip_table_event) = serde_json::from_str::<FlipTableEvent>(&event.data) {
-                debug!("{:?}", &flip_table_event);
-                break;
-            }
-        }
         Ok(())
     });
     Ok(())
