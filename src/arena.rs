@@ -78,18 +78,18 @@ impl TicTacToe {
         }
     }
 
-    fn position_to_index(pos: &str) -> (usize, usize) {
+    fn position_to_index(pos: &str) -> Option<(usize, usize)> {
         match pos {
-            "NW" => (0, 0),
-            "N" => (0, 1),
-            "NE" => (0, 2),
-            "W" => (1, 0),
-            "C" => (1, 1),
-            "E" => (1, 2),
-            "SW" => (2, 0),
-            "S" => (2, 1),
-            "SE" => (2, 2),
-            _ => unreachable!()
+            "NW" => Some((0, 0)),
+            "N" => Some((0, 1)),
+            "NE" => Some((0, 2)),
+            "W" => Some((1, 0)),
+            "C" => Some((1, 1)),
+            "E" => Some((1, 2)),
+            "SW" => Some((2, 0)),
+            "S" => Some((2, 1)),
+            "SE" => Some((2, 2)),
+            _ => None
         }
     }
 
@@ -103,8 +103,8 @@ impl TicTacToe {
             i = rng.gen_range(0..3);
             j = rng.gen_range(0..3);
         }
-        self.board[i][j] = self.turn.clone();
-        self.next_turn();
+        // self.board[i][j] = self.turn.clone();
+        // self.next_turn();
         Self::index_to_position(i, j)
     }
 
@@ -116,13 +116,15 @@ impl TicTacToe {
         }
     }
 
-    fn play_symbol(&mut self, pos: String) -> bool {
-        let (i, j) = Self::position_to_index(&pos);
+    fn play_symbol(&mut self, pos: String, player: String) -> bool {
+        if player != self.turn { return false; }
+        let x = Self::position_to_index(&pos);
+        if x.is_none() { return false; }
+        let (i, j) = x.unwrap();
         if self.board[i][j] != " " {
-            // todo: flip the table
             return false;
         } else {
-            self.board[i][j] = self.turn.clone();
+            self.board[i][j] = player;
         }
         self.next_turn();
         true
@@ -167,32 +169,19 @@ pub(crate) async fn arena_handle(payload: String) -> Result<(), StatusCode> {
                             let mut response = HashMap::new();
                             response.insert("action", "putSymbol");
                             response.insert("position", &new_pos);
-                            let client = reqwest::blocking::Client::new();
-                            let res = client
-                                .post(format!("https://cis2021-arena.herokuapp.com/tic-tac-toe/play/{}", battle_id))
-                                .header(CONTENT_TYPE, "application/json")
-                                .json(&response)
-                                .send();
+                            post_action(&battle_id, &response);
                             // debug!("{:?}", &res);
                         }
                     } else if let Ok(move_event) = serde_json::from_str::<MoveEvent>(&buf[5..]) {
                         debug!("buf={}, event={:?}", buf, move_event);
 
-                        if move_event.player == game.as_ref().unwrap().player {
-                            continue
-                        }
-
                         let pos = move_event.position.clone();
-                        if !game.as_mut().unwrap().play_symbol(pos) {
+                        let player = move_event.player.clone();
+                        if !game.as_mut().unwrap().play_symbol(pos, player) {
                             debug!("Flip the table");
                             let mut response = HashMap::new();
                             response.insert("action", "(╯°□°)╯︵ ┻━┻");
-                            let client = reqwest::blocking::Client::new();
-                            let res = client
-                                .post(format!("https://cis2021-arena.herokuapp.com/tic-tac-toe/play/{}", battle_id))
-                                .header(CONTENT_TYPE, "application/json")
-                                .json(&response)
-                                .send();
+                            post_action(&battle_id, &response);
                             continue;
                         }
                         debug!("{:?}", game);
@@ -202,18 +191,16 @@ pub(crate) async fn arena_handle(payload: String) -> Result<(), StatusCode> {
                         let mut response = HashMap::new();
                         response.insert("action", "putSymbol");
                         response.insert("position", &new_pos);
-                        let client = reqwest::blocking::Client::new();
-                        let res = client
-                            .post(format!("https://cis2021-arena.herokuapp.com/tic-tac-toe/play/{}", battle_id))
-                            .header(CONTENT_TYPE, "application/json")
-                            .json(&response)
-                            .send();
+                        post_action(&battle_id, &response);
                         // debug!("{:?}", &res);
                     } else if let Ok(game_end_event) = serde_json::from_str::<GameEndEvent>(&buf[5..]) {
                         debug!("buf={}, event={:?}", buf, game_end_event);
                         break;
                     } else if let Ok(flip_table_event) = serde_json::from_str::<FlipTableEvent>(&buf[5..]) {
                         debug!("buf={}, event={:?}", buf, flip_table_event);
+                        let mut response = HashMap::new();
+                        response.insert("action", "(╯°□°)╯︵ ┻━┻");
+                        post_action(&battle_id, &response);
                         break;
                     } else {
                         debug!("known buf={}", buf);
@@ -226,6 +213,15 @@ pub(crate) async fn arena_handle(payload: String) -> Result<(), StatusCode> {
         Ok(())
     }).join();
     Ok(())
+}
+
+fn post_action(battle_id: &String, response: &HashMap<&str, &str>) {
+    let client = reqwest::blocking::Client::new();
+    let res = client
+        .post(format!("https://cis2021-arena.herokuapp.com/tic-tac-toe/play/{}", battle_id))
+        .header(CONTENT_TYPE, "application/json")
+        .json(&response)
+        .send();
 }
 
 #[cfg(test)]
