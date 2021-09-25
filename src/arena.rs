@@ -176,6 +176,10 @@ pub(crate) async fn arena_handle(payload: String) -> Result<(), StatusCode> {
                     } else if let Ok(move_event) = serde_json::from_str::<MoveEvent>(&buf[5..]) {
                         debug!("buf={}, event={:?}", buf, move_event);
 
+                        if move_event.player == game.as_ref().unwrap().player {
+                            continue
+                        }
+
                         let pos = move_event.position.clone();
                         game.as_mut().unwrap().play_symbol(pos);
                         debug!("{:?}", game);
