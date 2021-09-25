@@ -116,14 +116,16 @@ impl TicTacToe {
         }
     }
 
-    fn play_symbol(&mut self, pos: String) {
+    fn play_symbol(&mut self, pos: String) -> bool {
         let (i, j) = Self::position_to_index(&pos);
         if self.board[i][j] != " " {
             // todo: flip the table
+            return false;
         } else {
             self.board[i][j] = self.turn.clone();
         }
         self.next_turn();
+        true
     }
 }
 
@@ -181,7 +183,18 @@ pub(crate) async fn arena_handle(payload: String) -> Result<(), StatusCode> {
                         }
 
                         let pos = move_event.position.clone();
-                        game.as_mut().unwrap().play_symbol(pos);
+                        if !game.as_mut().unwrap().play_symbol(pos) {
+                            debug!("Flip the table");
+                            let mut response = HashMap::new();
+                            response.insert("action", "(╯°□°)╯︵ ┻━┻");
+                            let client = reqwest::blocking::Client::new();
+                            let res = client
+                                .post(format!("https://cis2021-arena.herokuapp.com/tic-tac-toe/play/{}", battle_id))
+                                .header(CONTENT_TYPE, "application/json")
+                                .json(&response)
+                                .send();
+                            continue;
+                        }
                         debug!("{:?}", game);
 
                         let new_pos = game.as_mut().unwrap().random_move();
