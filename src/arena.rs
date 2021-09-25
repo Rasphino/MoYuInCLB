@@ -145,30 +145,33 @@ pub(crate) async fn arena_handle(payload: String) -> Result<(), StatusCode> {
                     std::thread::sleep(std::time::Duration::from_millis(10));
                 }
                 Ok(_) => {
-                    debug!("{}", buf);
                     if let Ok(initial_event) = serde_json::from_str::<InitialEvent>(&buf[5..]) {
+                        debug!("buf={}, event={:?}", buf, initial_event);
                         game = Some(TicTacToe::new(&initial_event.you_are));
+
                         if game.as_ref().unwrap().is_my_turn() {
                             let new_pos = game.as_mut().unwrap().random_move();
-                            debug!("{:?}", &game);
+
                             let response = json!({
                                 "action": "putSymbol",
                                 "position": new_pos
                             }).to_string();
+                            debug!("{:?}", response);
+
                             // send response
                             let client = reqwest::blocking::Client::new();
                             let res = client
                                 .post(format!("https://cis2021-arena.herokuapp.com/tic-tac-toe/play/{}", battle_id))
                                 .body(response)
                                 .send();
-                            debug!("{:?}", &res);
+                            // debug!("{:?}", &res);
                         }
-                    }
-                    if let Ok(move_event) = serde_json::from_str::<MoveEvent>(&buf[5..]) {
-                        debug!("{:?}", &move_event);
+                    } else if let Ok(move_event) = serde_json::from_str::<MoveEvent>(&buf[5..]) {
+                        debug!("buf={}, event={:?}", buf, move_event);
+
                         let pos = move_event.position.clone();
                         game.as_mut().unwrap().play_symbol(pos);
-                        debug!("{:?}", &game);
+                        debug!("{:?}", game);
 
                         let new_pos = game.as_mut().unwrap().random_move();
                         debug!("{:?}", &game);
@@ -176,24 +179,23 @@ pub(crate) async fn arena_handle(payload: String) -> Result<(), StatusCode> {
                             "action": "putSymbol",
                             "position": new_pos
                         }).to_string();
+                        debug!("{:?}", response);
 
                         let client = reqwest::blocking::Client::new();
                         let res = client
                             .post(format!("https://cis2021-arena.herokuapp.com/tic-tac-toe/play/{}", battle_id))
                             .body(response)
                             .send();
-                        debug!("{:?}", &res);
-                    }
-                    if let Ok(game_end_event) = serde_json::from_str::<GameEndEvent>(&buf[5..]) {
-                        debug!("{:?}", &game_end_event);
+                        // debug!("{:?}", &res);
+                    } else if let Ok(game_end_event) = serde_json::from_str::<GameEndEvent>(&buf[5..]) {
+                        debug!("buf={}, event={:?}", buf, game_end_event);
                         break;
-                    }
-                    if let Ok(flip_table_event) = serde_json::from_str::<FlipTableEvent>(&buf[5..]) {
-                        debug!("{:?}", &flip_table_event);
+                    } else if let Ok(flip_table_event) = serde_json::from_str::<FlipTableEvent>(&buf[5..]) {
+                        debug!("buf={}, event={:?}", buf, flip_table_event);
                         break;
+                    } else {
+                        debug!("known buf={}", buf);
                     }
-
-
                 }
                 Err(_) => { break; }
             }
