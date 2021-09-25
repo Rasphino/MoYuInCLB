@@ -1,4 +1,5 @@
 mod arena;
+mod parasite;
 
 use std::net::SocketAddr;
 
@@ -29,6 +30,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/", get(root))
         .route("/square", post(square_handle))
         .route("/tic-tac-toe", post(arena::arena_handle))
+        .route("/parasite", post(parasite::parasite_handle))
         .layer(
             ServiceBuilder::new()
                 .load_shed()
