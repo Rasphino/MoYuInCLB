@@ -124,14 +124,14 @@ impl TicTacToe {
 }
 
 #[tracing::instrument]
-pub(crate) async fn arena_handle(ConnectInfo(addr): ConnectInfo<SocketAddr>, payload: String) -> Result<(), StatusCode> {
+pub(crate) async fn arena_handle(payload: String) -> Result<(), StatusCode> {
     info!("called");
     let payload: TicTacToePostRequest = serde_json::from_str(&payload).map_err(|_e| StatusCode::BAD_REQUEST)?;
     let battle_id = payload.battle_id.clone();
     debug!("{}", &battle_id);
 
-    tokio::task::spawn_blocking(move || -> Result<(), StatusCode> {
-        let event_source = EventSource::new(&format!("http://{}/tic-tac-toe/start/{}", addr, battle_id)).unwrap();
+    std::thread::spawn(move || -> Result<(), StatusCode> {
+        let event_source = EventSource::new(&format!("https://cis2021-arena.herokuapp.com/tic-tac-toe/start/{}", battle_id)).unwrap();
         let rx = event_source.receiver();
         let initial_event = rx.recv().map_err(|_e| StatusCode::BAD_REQUEST)?;
         let initial_event: InitialEvent = serde_json::from_str(&initial_event.data).map_err(|_e| StatusCode::BAD_REQUEST)?;
@@ -147,7 +147,7 @@ pub(crate) async fn arena_handle(ConnectInfo(addr): ConnectInfo<SocketAddr>, pay
             // send response
             let client = reqwest::blocking::Client::new();
             let res = client
-                .post(format!("http://{}/tic-tac-toe/play/{}", addr, battle_id))
+                .post(format!("https://cis2021-arena.herokuapp.com/tic-tac-toe/play/{}", battle_id))
                 .body(response)
                 .send();
             debug!("{:?}", &res);
@@ -169,7 +169,7 @@ pub(crate) async fn arena_handle(ConnectInfo(addr): ConnectInfo<SocketAddr>, pay
 
                 let client = reqwest::blocking::Client::new();
                 let res = client
-                    .post(format!("http://{}/tic-tac-toe/play/{}", addr, battle_id))
+                    .post(format!("https://cis2021-arena.herokuapp.com/tic-tac-toe/play/{}", battle_id))
                     .body(response)
                     .send();
                 debug!("{:?}", &res);
@@ -184,7 +184,7 @@ pub(crate) async fn arena_handle(ConnectInfo(addr): ConnectInfo<SocketAddr>, pay
             }
         }
         Ok(())
-    }).await;
+    });
     Ok(())
 }
 
