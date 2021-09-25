@@ -31,6 +31,7 @@ pub(crate) async fn parasite_handle(payload: String) -> Result<Json<Vec<Parasite
     let resps = payload.into_iter()
         .map(|mut req| {
             let ticks_map = Parasite::bfs4(&mut req.grid);
+            debug!("m={}, n={}", ticks_map.len(), ticks_map[0].len());
             let mut p1 = serde_json::Map::new();
             let indi = req.indi.clone();
             for ind in indi {
@@ -46,7 +47,7 @@ pub(crate) async fn parasite_handle(payload: String) -> Result<Json<Vec<Parasite
                         if ticks_map[i][j] == -1 && req.grid[i][j] == 1 {
                             max = -1;
                             break;
-                        } else {
+                        } else if req.grid[i][j] == 1 {
                             max = std::cmp::max(max, ticks_map[i][j]);
                         }
                     }
@@ -104,7 +105,10 @@ impl Parasite {
                         tick_map[i][j] = ticks;
                     },
                     2 => {
-                        list.push((i, j));
+                        if tick_map[i][j] == -1 {
+                            list.push((i, j));
+                            tick_map[i][j] = ticks;
+                        }
                     }
                     _ => {}
                 }
